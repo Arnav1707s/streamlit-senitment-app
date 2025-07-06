@@ -7,7 +7,7 @@ nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
 nltk.data.path.append(nltk_data_dir)
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
-from nltk import pos_tag, word_tokenize
+from nltk import pos_tag, word_tokenize, TreebankWordTokenizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -29,19 +29,41 @@ def get_wordnet_pos(tag):
         return wordnet.NOUN
 
 def preprocess_text(text):
-    text = str(text).lower()
+    import re
+    from nltk.corpus import stopwords
+    from nltk.stem import WordNetLemmatizer
+    from nltk import pos_tag
+
+    # Text cleaning
+    text = text.lower()
     text = re.sub(r"n't", ' not', text)
     text = re.sub(r'[^a-zA-Z\s]', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
-    tokens = word_tokenize(text)
+
+    # Tokenization using Treebank (avoids sent_tokenize)
+    tokenizer = TreebankWordTokenizer()
+    tokens = tokenizer.tokenize(text)
+
+    # Stopword removal, POS tagging, and lemmatization
     stop_words = set(stopwords.words('english'))
     lemmatizer = WordNetLemmatizer()
     pos_tags = pos_tag(tokens)
-    words = [
-        lemmatizer.lemmatize(word, get_wordnet_pos(tag))
-        for word, tag in pos_tags
-        if word not in stop_words and len(word) > 2
-    ]
+
+    def get_wordnet_pos(tag):
+        if tag.startswith('J'):
+            return 'a'
+        elif tag.startswith('V'):
+            return 'v'
+        elif tag.startswith('N'):
+            return 'n'
+        elif tag.startswith('R'):
+            return 'r'
+        else:
+            return 'n'
+
+    words = [lemmatizer.lemmatize(word, get_wordnet_pos(tag))
+             for word, tag in pos_tags if word not in stop_words]
+
     return ' '.join(words)
 
 # ✅ Improved Star Rating Function
