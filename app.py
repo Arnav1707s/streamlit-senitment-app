@@ -4,20 +4,19 @@ import re
 import os
 import nltk
 
-# ✅ Define NLTK data directory before anything else
+# ✅ Define and register custom NLTK data directory early
 nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
 os.makedirs(nltk_data_dir, exist_ok=True)
 if nltk_data_dir not in nltk.data.path:
     nltk.data.path.append(nltk_data_dir)
 
-# ✅ Ensure NLTK resources are downloaded to correct directory
+# ✅ Ensure all required NLTK resources are available
 resources = {
     'punkt': 'tokenizers/punkt',
     'stopwords': 'corpora/stopwords',
     'wordnet': 'corpora/wordnet',
     'averaged_perceptron_tagger': 'taggers/averaged_perceptron_tagger'
 }
-
 for resource, path in resources.items():
     try:
         nltk.data.find(path)
@@ -37,12 +36,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 import joblib
 
-# ✅ POS tagging helper
+# ✅ POS tagging helper with fallback
 def safe_pos_tag(tokens):
     try:
         return pos_tag(tokens)
     except LookupError:
         nltk.download('averaged_perceptron_tagger', download_dir=nltk_data_dir)
+        if nltk_data_dir not in nltk.data.path:
+            nltk.data.path.append(nltk_data_dir)
         return pos_tag(tokens)
 
 # ✅ Text preprocessing
@@ -60,9 +61,7 @@ def preprocess_text(text):
     pos_tags = safe_pos_tag(tokens)
 
     def get_wordnet_pos_simple(tag):
-        return {
-            'J': 'a', 'V': 'v', 'N': 'n', 'R': 'r'
-        }.get(tag[0], 'n')
+        return {'J': 'a', 'V': 'v', 'N': 'n', 'R': 'r'}.get(tag[0], 'n')
 
     words = [lemmatizer.lemmatize(word, get_wordnet_pos_simple(tag))
              for word, tag in pos_tags if word not in stop_words]
@@ -87,7 +86,7 @@ def get_emoji_feedback(sentiment, confidence):
     else:
         return "😡 Very Dissatisfied" if confidence >= 0.9 else "😠 Angry" if confidence >= 0.75 else "😞 Slightly Negative"
 
-# ✅ Model training
+# ✅ Model training or loading
 model_path = 'sentiment_model_fixed.pkl'
 if not os.path.exists(model_path):
     st.info("🔨 Training model using your IMDB CSV with Correct Mapping...")
