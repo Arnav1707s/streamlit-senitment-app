@@ -3,18 +3,24 @@ import pandas as pd
 import re
 import nltk
 import os
+
+# Ensure NLTK data directory is set up
 nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
-nltk.data.path.append(nltk_data_dir)
+if nltk_data_dir not in nltk.data.path:
+    nltk.data.path.append(nltk_data_dir)
+
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
-from nltk import pos_tag, word_tokenize, TreebankWordTokenizer
+from nltk import pos_tag, TreebankWordTokenizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 import joblib
-from nltk.tag import PerceptronTagger
+
+# Import PerceptronTagger for fallback POS tagging
+from nltk.tag.perceptron import PerceptronTagger
 
 def safe_pos_tag(tokens):
     try:
@@ -37,11 +43,6 @@ def get_wordnet_pos(tag):
         return wordnet.NOUN
 
 def preprocess_text(text):
-    import re
-    from nltk.corpus import stopwords
-    from nltk.stem import WordNetLemmatizer
-    from nltk import pos_tag
-
     # Text cleaning
     text = text.lower()
     text = re.sub(r"n't", ' not', text)
@@ -57,7 +58,7 @@ def preprocess_text(text):
     lemmatizer = WordNetLemmatizer()
     pos_tags = safe_pos_tag(tokens)
 
-    def get_wordnet_pos(tag):
+    def get_wordnet_pos_simple(tag):
         if tag.startswith('J'):
             return 'a'
         elif tag.startswith('V'):
@@ -69,7 +70,7 @@ def preprocess_text(text):
         else:
             return 'n'
 
-    words = [lemmatizer.lemmatize(word, get_wordnet_pos(tag))
+    words = [lemmatizer.lemmatize(word, get_wordnet_pos_simple(tag))
              for word, tag in pos_tags if word not in stop_words]
 
     return ' '.join(words)
@@ -123,7 +124,7 @@ if not os.path.exists(model_path):
 
     # ✅ Load your IMDB dataset
     data = pd.read_csv("imdb_reviews.csv")
-    
+
     # ✅ Correct Sentiment Mapping:
     data['sentiment'] = data['sentiment'].map({0: -1, 1: 1})
 
@@ -195,10 +196,10 @@ if st.button("Predict Sentiment"):
         sentiment = model.predict([processed_review])[0]
         confidence = model.predict_proba([processed_review]).max()
 
-        stars = get_star_rating(sentiment, confidence)  # ✅ Fixed (added sentiment)
+        stars = get_star_rating(sentiment, confidence)
         emoji = get_emoji_feedback(sentiment, confidence)
 
-        sentiment_label = {1: "Positive", 0: "Neutral", -1: "Negative"}[sentiment]
+        sentiment_label = {1: "Positive", 0: "Neutral", -1: "Negative"}.get(sentiment, "Unknown")
 
         st.success("🎯 **Prediction Result:**")
         st.markdown(f"**Sentiment:** `{sentiment_label}`")
