@@ -3,21 +3,33 @@ import pandas as pd
 import re
 import os
 import nltk
-# Ensure NLTK resources are downloaded
-for resource in ['punkt', 'stopwords', 'wordnet', 'averaged_perceptron_tagger']:
-    try:
-        nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
-    except LookupError:
-        nltk.download(resource)
 
-# Ensure NLTK data directory is set up
+# ✅ Define NLTK data directory before anything else
 nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
+os.makedirs(nltk_data_dir, exist_ok=True)
 if nltk_data_dir not in nltk.data.path:
     nltk.data.path.append(nltk_data_dir)
 
+# ✅ Ensure NLTK resources are downloaded to correct directory
+resources = {
+    'punkt': 'tokenizers/punkt',
+    'stopwords': 'corpora/stopwords',
+    'wordnet': 'corpora/wordnet',
+    'averaged_perceptron_tagger': 'taggers/averaged_perceptron_tagger'
+}
+
+for resource, path in resources.items():
+    try:
+        nltk.data.find(path)
+    except LookupError:
+        nltk.download(resource, download_dir=nltk_data_dir)
+
+# ✅ NLP imports
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
 from nltk import pos_tag, TreebankWordTokenizer
+
+# ✅ ML imports
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -25,128 +37,73 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 import joblib
 
+# ✅ POS tagging helper
 def safe_pos_tag(tokens):
     try:
         return pos_tag(tokens)
-    except LookupError as e:
-        nltk.download('averaged_perceptron_tagger')
+    except LookupError:
+        nltk.download('averaged_perceptron_tagger', download_dir=nltk_data_dir)
         return pos_tag(tokens)
 
-# ✅ Preprocessing Functions
-def get_wordnet_pos(tag):
-    if tag.startswith('J'):
-        return wordnet.ADJ
-    elif tag.startswith('V'):
-        return wordnet.VERB
-    elif tag.startswith('N'):
-        return wordnet.NOUN
-    elif tag.startswith('R'):
-        return wordnet.ADV
-    else:
-        return wordnet.NOUN
-
+# ✅ Text preprocessing
 def preprocess_text(text):
-    # Text cleaning
     text = text.lower()
     text = re.sub(r"n't", ' not', text)
     text = re.sub(r'[^a-zA-Z\s]', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
 
-    # Tokenization using Treebank (avoids sent_tokenize)
     tokenizer = TreebankWordTokenizer()
     tokens = tokenizer.tokenize(text)
 
-    # Stopword removal, POS tagging, and lemmatization
     stop_words = set(stopwords.words('english'))
     lemmatizer = WordNetLemmatizer()
     pos_tags = safe_pos_tag(tokens)
 
     def get_wordnet_pos_simple(tag):
-        if tag.startswith('J'):
-            return 'a'
-        elif tag.startswith('V'):
-            return 'v'
-        elif tag.startswith('N'):
-            return 'n'
-        elif tag.startswith('R'):
-            return 'r'
-        else:
-            return 'n'
+        return {
+            'J': 'a', 'V': 'v', 'N': 'n', 'R': 'r'
+        }.get(tag[0], 'n')
 
     words = [lemmatizer.lemmatize(word, get_wordnet_pos_simple(tag))
              for word, tag in pos_tags if word not in stop_words]
 
     return ' '.join(words)
 
-# ✅ Improved Star Rating Function
+# ✅ Star rating
 def get_star_rating(sentiment, confidence):
-    if sentiment == 1:  # Positive
-        if confidence >= 0.9:
-            return "⭐⭐⭐⭐⭐"
-        elif confidence >= 0.75:
-            return "⭐⭐⭐⭐"
-        else:
-            return "⭐⭐⭐"
-    elif sentiment == 0:  # Neutral
-        if confidence >= 0.8:
-            return "⭐⭐⭐"
-        else:
-            return "⭐⭐"
-    else:  # Negative (force low stars)
-        if confidence >= 0.9:
-            return "⭐⭐"
-        else:
-            return "⭐"
+    if sentiment == 1:
+        return "⭐⭐⭐⭐⭐" if confidence >= 0.9 else "⭐⭐⭐⭐" if confidence >= 0.75 else "⭐⭐⭐"
+    elif sentiment == 0:
+        return "⭐⭐⭐" if confidence >= 0.8 else "⭐⭐"
+    else:
+        return "⭐⭐" if confidence >= 0.9 else "⭐"
 
-# ✅ Emoji Feedback Function
+# ✅ Emoji feedback
 def get_emoji_feedback(sentiment, confidence):
     if sentiment == 1:
-        if confidence >= 0.9:
-            return "😍 Extremely Happy"
-        elif confidence >= 0.75:
-            return "😊 Happy"
-        else:
-            return "🙂 Slightly Positive"
+        return "😍 Extremely Happy" if confidence >= 0.9 else "😊 Happy" if confidence >= 0.75 else "🙂 Slightly Positive"
     elif sentiment == 0:
-        if confidence >= 0.8:
-            return "😐 Neutral"
-        else:
-            return "🤔 Slightly Neutral"
+        return "😐 Neutral" if confidence >= 0.8 else "🤔 Slightly Neutral"
     else:
-        if confidence >= 0.9:
-            return "😡 Very Dissatisfied"
-        elif confidence >= 0.75:
-            return "😠 Angry"
-        else:
-            return "😞 Slightly Negative"
+        return "😡 Very Dissatisfied" if confidence >= 0.9 else "😠 Angry" if confidence >= 0.75 else "😞 Slightly Negative"
 
-# ✅ Model Training (If Not Already Trained)
+# ✅ Model training
 model_path = 'sentiment_model_fixed.pkl'
 if not os.path.exists(model_path):
     st.info("🔨 Training model using your IMDB CSV with Correct Mapping...")
 
-    # ✅ Load your IMDB dataset
     data = pd.read_csv("imdb_reviews.csv")
-
-    # ✅ Correct Sentiment Mapping:
     data['sentiment'] = data['sentiment'].map({0: -1, 1: 1})
 
-    # ✅ Inject Neutral Samples (Optional)
     neutral_data = pd.DataFrame({
         'review': [
-            "It was okay",
-            "Average movie",
-            "Nothing special or bad",
-            "It was just fine, not great, not bad",
-            "Neutral experience overall",
-            "I neither liked nor disliked it"
+            "It was okay", "Average movie", "Nothing special or bad",
+            "It was just fine, not great, not bad", "Neutral experience overall", "I neither liked nor disliked it"
         ],
-        'sentiment': [0, 0, 0, 0, 0, 0]
+        'sentiment': [0] * 6
     })
 
     data = pd.concat([data, neutral_data], ignore_index=True)
-
-    # ✅ Preprocessing & Training
     data['review'] = data['review'].astype(str).apply(preprocess_text)
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -181,10 +138,9 @@ if not os.path.exists(model_path):
 else:
     print("✅ Model already trained. Loading...")
 
-# ✅ Load Model
 model = joblib.load(model_path)
 
-# ✅ Streamlit App UI
+# ✅ Streamlit UI
 st.set_page_config(page_title="3-Class Sentiment Classifier", page_icon="💬", layout="centered")
 st.title("💬 Multi-Class Sentiment Classifier (Positive, Neutral, Negative)")
 st.subheader("🔍 Analyze Sentiment with Star Rating & Emojis")
@@ -212,4 +168,3 @@ if st.button("Predict Sentiment"):
 
 st.markdown("---")
 st.caption("🚀 Built with Streamlit, TF-IDF, Logistic Regression & NLP")
-
