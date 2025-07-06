@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import re
 import nltk
+import os
+nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
+nltk.data.path.append(nltk_data_dir)
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
 from nltk import pos_tag, word_tokenize
@@ -11,18 +14,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 import joblib
-import os
-
-# Set up a dedicated nltk_data directory
-nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
-os.makedirs(nltk_data_dir, exist_ok=True)
-nltk.data.path.append(nltk_data_dir)
-
-# Download to that directory
-nltk.download("punkt", download_dir=nltk_data_dir)
-nltk.download("stopwords", download_dir=nltk_data_dir)
-nltk.download("wordnet", download_dir=nltk_data_dir)
-nltk.download("averaged_perceptron_tagger", download_dir=nltk_data_dir)
 
 # ✅ Preprocessing Functions
 def get_wordnet_pos(tag):
