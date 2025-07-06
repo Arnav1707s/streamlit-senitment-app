@@ -13,11 +13,16 @@ from sklearn.metrics import classification_report
 import joblib
 import os
 
-# ✅ Download required NLTK resources
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('wordnet')
-nltk.download('averaged_perceptron_tagger')
+# Set up a dedicated nltk_data directory
+nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
+os.makedirs(nltk_data_dir, exist_ok=True)
+nltk.data.path.append(nltk_data_dir)
+
+# Download to that directory
+nltk.download("punkt", download_dir=nltk_data_dir)
+nltk.download("stopwords", download_dir=nltk_data_dir)
+nltk.download("wordnet", download_dir=nltk_data_dir)
+nltk.download("averaged_perceptron_tagger", download_dir=nltk_data_dir)
 
 # ✅ Preprocessing Functions
 def get_wordnet_pos(tag):
