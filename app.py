@@ -1,8 +1,14 @@
 import streamlit as st
 import pandas as pd
 import re
-import nltk
 import os
+import nltk
+# Ensure NLTK resources are downloaded
+for resource in ['punkt', 'stopwords', 'wordnet', 'averaged_perceptron_tagger']:
+    try:
+        nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
+    except LookupError:
+        nltk.download(resource)
 
 # Ensure NLTK data directory is set up
 nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
@@ -19,15 +25,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 import joblib
 
-# Import PerceptronTagger for fallback POS tagging
-from nltk.tag.perceptron import PerceptronTagger
-
 def safe_pos_tag(tokens):
     try:
         return pos_tag(tokens)
-    except LookupError:
-        tagger = PerceptronTagger()
-        return tagger.tag(tokens)
+    except LookupError as e:
+        nltk.download('averaged_perceptron_tagger')
+        return pos_tag(tokens)
 
 # ✅ Preprocessing Functions
 def get_wordnet_pos(tag):
