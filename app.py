@@ -14,6 +14,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 import joblib
+from nltk.tag import PerceptronTagger
+
+def safe_pos_tag(tokens):
+    try:
+        return pos_tag(tokens)
+    except LookupError:
+        tagger = PerceptronTagger()
+        return tagger.tag(tokens)
 
 # ✅ Preprocessing Functions
 def get_wordnet_pos(tag):
@@ -47,7 +55,7 @@ def preprocess_text(text):
     # Stopword removal, POS tagging, and lemmatization
     stop_words = set(stopwords.words('english'))
     lemmatizer = WordNetLemmatizer()
-    pos_tags = pos_tag(tokens)
+    pos_tags = safe_pos_tag(tokens)
 
     def get_wordnet_pos(tag):
         if tag.startswith('J'):
